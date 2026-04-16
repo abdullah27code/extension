@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "LinkedIn AI Job Assistant",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Extracts LinkedIn job details and generates a personalized AI application message.",
   "permissions": ["storage"],
   "host_permissions": [
@@ -9,12 +9,11 @@
     "https://api.openai.com/*"
   ],
   "background": {
-    "service_worker": "background.js",
-    "type": "module"
+    "service_worker": "background.js"
   },
   "content_scripts": [
     {
-      "matches": ["https://www.linkedin.com/jobs/view/*"],
+      "matches": ["https://www.linkedin.com/jobs/*"],
       "js": ["content.js"],
       "css": ["content.css"],
       "run_at": "document_idle"
