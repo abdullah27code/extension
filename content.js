@@ -3,7 +3,7 @@ const OVERLAY_ID = 'liai-overlay';
 const REQUEST_TIMEOUT_MS = 45000;
 
 function isLinkedInJobPage() {
-  return location.hostname === 'www.linkedin.com' && location.pathname.startsWith('/jobs/');
+  return location.hostname.endsWith('linkedin.com') && location.pathname.startsWith('/jobs/');
 }
 
 function extractJobData() {
@@ -12,12 +12,14 @@ function extractJobData() {
   const title =
     text('.job-details-jobs-unified-top-card__job-title h1') ||
     text('.jobs-unified-top-card__job-title') ||
+    text('.job-card-container__title') ||
     text('.top-card-layout__title') ||
     text('h1');
 
   const company =
     text('.job-details-jobs-unified-top-card__company-name a') ||
     text('.jobs-unified-top-card__company-name') ||
+    text('.job-card-container__company-name') ||
     text('.topcard__org-name-link');
 
   const description =
@@ -85,6 +87,19 @@ function setOutput(content) {
   if (outputEl) outputEl.textContent = content;
 }
 
+function buildLocalFallbackMessage(jobData) {
+  return [
+    `Hi Hiring Team at ${jobData.company || 'your company'},`,
+    '',
+    `I’m excited to apply for the ${jobData.title || 'open role'} position.` +
+      ' My background aligns with the responsibilities described, and I can contribute quickly with ownership and strong execution.',
+    '',
+    'I would value the opportunity to discuss how I can support your team’s goals.',
+    '',
+    'Best regards,'
+  ].join('\n');
+}
+
 function requestGeneratedMessage(jobData) {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
@@ -119,9 +134,9 @@ async function onGenerateClicked() {
     statusEl.innerHTML = '<span class="liai-spinner"></span>Generating message...';
   }
 
-  try {
-    const jobData = extractJobData();
+  const jobData = extractJobData();
 
+  try {
     if (!jobData.title && !jobData.company && !jobData.description) {
       throw new Error('Could not extract job details from this page.');
     }
@@ -130,36 +145,48 @@ async function onGenerateClicked() {
     setStatus('Message generated successfully.');
     setOutput(generatedMessage);
   } catch (error) {
-    setStatus(error instanceof Error ? error.message : 'Unexpected error', true);
-    setOutput('');
+    const fallback = buildLocalFallbackMessage(jobData);
+    setStatus(
+      `AI request failed: ${error instanceof Error ? error.message : 'Unexpected error'}. Showing fallback message.`,
+      true
+    );
+    setOutput(fallback);
   }
 }
 
-function injectButton() {
+function ensureButton() {
   if (!isLinkedInJobPage()) return;
   if (document.getElementById(GENERATE_BUTTON_ID)) return;
-
-  const targetContainer =
-    document.querySelector('.job-details-jobs-unified-top-card__primary-description-container') ||
-    document.querySelector('.jobs-unified-top-card__content--two-pane') ||
-    document.querySelector('.jobs-search__job-details--container') ||
-    document.querySelector('main');
-
-  if (!targetContainer) return;
 
   const button = document.createElement('button');
   button.id = GENERATE_BUTTON_ID;
   button.type = 'button';
   button.textContent = 'Generate AI Message';
-  button.addEventListener('click', onGenerateClicked);
-  targetContainer.prepend(button);
+  document.body.appendChild(button);
+}
+
+function bindGlobalClickHandler() {
+  document.addEventListener('click', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (target.id !== GENERATE_BUTTON_ID) return;
+
+    event.preventDefault();
+    onGenerateClicked();
+  });
 }
 
 function boot() {
-  injectButton();
+  ensureModal();
+  ensureButton();
+  bindGlobalClickHandler();
 
-  const observer = new MutationObserver(() => injectButton());
+  const observer = new MutationObserver(() => ensureButton());
   observer.observe(document.documentElement, { childList: true, subtree: true });
 }
 
-boot();
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', boot, { once: true });
+} else {
+  boot();
+}

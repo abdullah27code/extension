@@ -1,4 +1,8 @@
 #liai-generate-btn {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 2147483645;
   display: inline-flex;
   align-items: center;
   justify-content: center;
