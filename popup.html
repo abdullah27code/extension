@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Page Helper</title>
+    <style>
+      /* Simple popup layout for beginners */
+      body {
+        margin: 0;
+        padding: 16px;
+        min-width: 260px;
+        font-family: Arial, sans-serif;
+        background: #f5f7fb;
+      }
+
+      .card {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 16px;
+      }
+
+      p {
+        margin: 0;
+        font-size: 13px;
+        color: #444;
+        line-height: 1.4;
+      }
+
+      button {
+        border: none;
+        border-radius: 8px;
+        padding: 10px 12px;
+        font-size: 14px;
+        background: #1a73e8;
+        color: #fff;
+        cursor: pointer;
+      }
+
+      button:hover {
+        background: #1557b0;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <!-- Popup title -->
+      <h1>Page Helper</h1>
+
+      <!-- Short instruction for user -->
+      <p>Click the button to change page background and log image URLs.</p>
+
+      <!-- Button that sends command to content script -->
+      <button id="runActionButton" type="button">Run on Current Page</button>
+    </main>
+
+    <!-- Popup JavaScript -->
+    <script src="popup.js"></script>
+  </body>
+</html>
