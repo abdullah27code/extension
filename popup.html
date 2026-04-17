@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TikTok Daily Share</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 14px;
+        min-width: 320px;
+        font-family: Arial, sans-serif;
+        background: #f8fafc;
+      }
+
+      .card {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 17px;
+      }
+
+      label {
+        font-size: 13px;
+        color: #334155;
+      }
+
+      input {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 8px 10px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 13px;
+      }
+
+      .row {
+        display: flex;
+        gap: 8px;
+      }
+
+      button {
+        border: none;
+        border-radius: 8px;
+        padding: 8px 12px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      #saveButton {
+        background: #2563eb;
+        color: #fff;
+      }
+
+      #toggleButton,
+      #runNowButton {
+        background: #e2e8f0;
+        color: #1e293b;
+      }
+
+      #status {
+        font-size: 12px;
+        color: #475569;
+        min-height: 18px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <h1>TikTok Daily Share</h1>
+
+      <label for="videoUrl">TikTok Video URL</label>
+      <input id="videoUrl" type="url" placeholder="https://www.tiktok.com/@user/video/123" />
+
+      <div class="row">
+        <button id="saveButton" type="button">Save URL</button>
+        <button id="toggleButton" type="button">Enable</button>
+        <button id="runNowButton" type="button">Run Now</button>
+      </div>
+
+      <p id="status">Status: Inactive</p>
+    </main>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

@@ -1,25 +1,21 @@
 {
   "manifest_version": 3,
-  "name": "LinkedIn AI Job Assistant",
-  "version": "2.0.1",
-  "description": "Extracts LinkedIn job details and generates a personalized AI application message.",
-  "permissions": ["storage"],
-  "host_permissions": [
-    "https://www.linkedin.com/*",
-    "https://api.openai.com/*"
-  ],
+  "name": "TikTok Daily Share Automation",
+  "version": "1.0.0",
+  "description": "Saves a TikTok video URL and automates share interaction once per day.",
+  "permissions": ["storage", "alarms", "tabs", "scripting", "activeTab"],
+  "host_permissions": ["https://www.tiktok.com/*"],
   "background": {
     "service_worker": "background.js"
   },
+  "action": {
+    "default_popup": "popup.html"
+  },
   "content_scripts": [
     {
-      "matches": ["https://www.linkedin.com/jobs/*"],
+      "matches": ["https://www.tiktok.com/*"],
       "js": ["content.js"],
-      "css": ["content.css"],
       "run_at": "document_idle"
     }
-  ],
-  "action": {
-    "default_title": "LinkedIn AI Job Assistant"
-  }
+  ]
 }

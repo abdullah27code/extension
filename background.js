@@ -1,94 +1,108 @@
-const DEFAULT_AI_API_URL = 'https://api.openai.com/v1/responses';
-const DEFAULT_MODEL = 'gpt-4.1-mini';
+// Alarm name used across the extension.
+const DAILY_ALARM_NAME = 'dailyTiktokShare';
 
-/**
- * Build a clean prompt from extracted LinkedIn job data.
- */
-function buildPrompt(job) {
-  return [
-    'You are an expert career assistant.',
-    'Write a concise, personalized job application message (120-180 words).',
-    'Use a confident but human tone and mention why the candidate fits the role.',
-    'Avoid placeholders and avoid hallucinating achievements.',
-    '',
-    `Job Title: ${job.title || 'N/A'}`,
-    `Company: ${job.company || 'N/A'}`,
-    `Job Description: ${job.description || 'N/A'}`
-  ].join('\n');
+// Create/refresh the daily alarm.
+async function ensureDailyAlarm() {
+  const { automationEnabled = false } = await chrome.storage.sync.get('automationEnabled');
+
+  if (!automationEnabled) {
+    chrome.alarms.clear(DAILY_ALARM_NAME);
+    console.log('[TikTok Scheduler] Automation disabled. Alarm cleared.');
+    return;
+  }
+
+  // Run first after 1 minute, then every 24 hours.
+  chrome.alarms.create(DAILY_ALARM_NAME, { delayInMinutes: 1, periodInMinutes: 24 * 60 });
+  console.log('[TikTok Scheduler] Daily alarm scheduled.');
 }
 
-/**
- * Best-effort parser for the Responses API output.
- */
-function extractTextFromResponse(payload) {
-  if (!payload || typeof payload !== 'object') {
-    return '';
-  }
+// Send a message to content script when the tab is fully loaded.
+function triggerShareOnTab(tabId) {
+  chrome.tabs.sendMessage(tabId, { type: 'RUN_DAILY_SHARE' }, (response) => {
+    if (chrome.runtime.lastError) {
+      console.warn('[TikTok Scheduler] Could not message content script:', chrome.runtime.lastError.message);
+      return;
+    }
 
-  if (typeof payload.output_text === 'string' && payload.output_text.trim()) {
-    return payload.output_text.trim();
-  }
-
-  const firstOutput = Array.isArray(payload.output) ? payload.output[0] : null;
-  const firstContent = firstOutput && Array.isArray(firstOutput.content) ? firstOutput.content[0] : null;
-  if (firstContent && typeof firstContent.text === 'string' && firstContent.text.trim()) {
-    return firstContent.text.trim();
-  }
-
-  return '';
+    console.log('[TikTok Scheduler] Content script response:', response);
+  });
 }
 
-async function generateMessageWithAI(jobData) {
-  const { aiApiKey, aiApiUrl = DEFAULT_AI_API_URL, aiModel = DEFAULT_MODEL } = await chrome.storage.sync.get([
-    'aiApiKey',
-    'aiApiUrl',
-    'aiModel'
+// Open TikTok video and trigger automation.
+async function runDailyShare() {
+  const { videoUrl = '', automationEnabled = false } = await chrome.storage.sync.get([
+    'videoUrl',
+    'automationEnabled'
   ]);
 
-  if (!aiApiKey) {
-    throw new Error('Missing API key. Set `aiApiKey` in chrome.storage.sync first.');
+  if (!automationEnabled) {
+    console.log('[TikTok Scheduler] Skipping run: automation is disabled.');
+    return;
   }
 
-  const response = await fetch(aiApiUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${aiApiKey}`
-    },
-    body: JSON.stringify({
-      model: aiModel,
-      input: buildPrompt(jobData)
-    })
-  });
-
-  if (!response.ok) {
-    const errorBody = await response.text();
-    throw new Error(`AI API request failed (${response.status}): ${errorBody.slice(0, 300)}`);
+  if (!videoUrl || !videoUrl.includes('tiktok.com')) {
+    console.warn('[TikTok Scheduler] Skipping run: no valid TikTok URL saved.');
+    return;
   }
 
-  const payload = await response.json();
-  const message = extractTextFromResponse(payload);
-
-  if (!message) {
-    throw new Error('AI API returned an empty message.');
+  // Open a background tab (inactive) with saved TikTok URL.
+  const tab = await chrome.tabs.create({ url: videoUrl, active: false });
+  if (!tab.id) {
+    console.warn('[TikTok Scheduler] Could not create tab for daily share.');
+    return;
   }
 
-  return message;
+  // Wait for page load, then ask content script to execute clicks.
+  const onUpdated = (updatedTabId, info) => {
+    if (updatedTabId === tab.id && info.status === 'complete') {
+      chrome.tabs.onUpdated.removeListener(onUpdated);
+      triggerShareOnTab(tab.id);
+    }
+  };
+
+  chrome.tabs.onUpdated.addListener(onUpdated);
 }
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message?.type !== 'GENERATE_AI_APPLICATION_MESSAGE') {
-    return false;
+// Initialize default settings and schedule alarm.
+chrome.runtime.onInstalled.addListener(async () => {
+  const data = await chrome.storage.sync.get(['videoUrl', 'automationEnabled']);
+
+  if (typeof data.automationEnabled !== 'boolean') {
+    await chrome.storage.sync.set({ automationEnabled: false });
   }
 
-  (async () => {
-    try {
-      const generatedMessage = await generateMessageWithAI(message.jobData || {});
-      sendResponse({ ok: true, generatedMessage });
-    } catch (error) {
-      sendResponse({ ok: false, error: error instanceof Error ? error.message : String(error) });
-    }
-  })();
+  if (typeof data.videoUrl !== 'string') {
+    await chrome.storage.sync.set({ videoUrl: '' });
+  }
+
+  await ensureDailyAlarm();
+  console.log('[TikTok Scheduler] Extension installed and initialized.');
+});
+
+// Re-schedule when storage values change.
+chrome.storage.onChanged.addListener(async (changes, areaName) => {
+  if (areaName !== 'sync') return;
+
+  if (changes.automationEnabled) {
+    await ensureDailyAlarm();
+  }
+});
+
+// Execute on alarm trigger.
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === DAILY_ALARM_NAME) {
+    console.log('[TikTok Scheduler] Alarm fired. Running daily share flow.');
+    runDailyShare();
+  }
+});
+
+// Allow popup to force a manual run for testing.
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type !== 'RUN_NOW') return;
+
+  runDailyShare()
+    .then(() => sendResponse({ ok: true }))
+    .catch((error) => sendResponse({ ok: false, error: String(error) }));
 
   return true;
 });
