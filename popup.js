@@ -4,8 +4,25 @@ const toggleButton = document.getElementById('toggleButton');
 const runNowButton = document.getElementById('runNowButton');
 const statusText = document.getElementById('status');
 
+function normalizeUrl(input) {
+  const raw = input.trim();
+  if (!raw) return '';
+
+  // If user pastes without protocol, default to https.
+  if (!/^https?:\/\//i.test(raw)) {
+    return `https://${raw}`;
+  }
+
+  return raw;
+}
+
 function isValidTikTokUrl(url) {
-  return /^https:\/\/www\.tiktok\.com\/.+/i.test(url);
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname === 'tiktok.com' || parsed.hostname.endsWith('.tiktok.com');
+  } catch {
+    return false;
+  }
 }
 
 function formatTime(isoString) {
@@ -42,14 +59,14 @@ async function refreshUI() {
 }
 
 saveButton.addEventListener('click', async () => {
-  const videoUrl = videoUrlInput.value.trim();
+  const normalizedUrl = normalizeUrl(videoUrlInput.value);
 
-  if (!isValidTikTokUrl(videoUrl)) {
-    statusText.textContent = 'Please enter a valid TikTok URL (https://www.tiktok.com/...).';
+  if (!isValidTikTokUrl(normalizedUrl)) {
+    statusText.textContent = 'Please enter a valid TikTok URL (www / vm / m supported).';
     return;
   }
 
-  await chrome.storage.sync.set({ videoUrl });
+  await chrome.storage.sync.set({ videoUrl: normalizedUrl });
   statusText.textContent = 'URL saved successfully.';
   refreshUI();
 });

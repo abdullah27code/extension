@@ -78,8 +78,17 @@ async function runDailyShare() {
     return { ok: false, reason: 'disabled' };
   }
 
-  if (!videoUrl || !videoUrl.includes('tiktok.com')) {
-    await setRunStatus('failed', 'No valid TikTok URL saved.');
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(videoUrl);
+  } catch {
+    await setRunStatus('failed', 'Saved URL is malformed. Please save again.');
+    return { ok: false, reason: 'invalid_url' };
+  }
+
+  const isTikTokHost = parsedUrl.hostname === 'tiktok.com' || parsedUrl.hostname.endsWith('.tiktok.com');
+  if (!isTikTokHost) {
+    await setRunStatus('failed', 'Saved URL is not a TikTok domain.');
     return { ok: false, reason: 'invalid_url' };
   }
 
