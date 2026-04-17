@@ -1,90 +1,101 @@
-// Utility: wait helper.
+// Utility delay.
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// Try multiple selectors and return the first matching element.
-function findFirst(selectors) {
+// Find first element matching selector array.
+function findBySelectors(selectors) {
   for (const selector of selectors) {
-    const element = document.querySelector(selector);
-    if (element) return element;
+    const el = document.querySelector(selector);
+    if (el) return el;
   }
   return null;
 }
 
-// Find an element with retries because TikTok UI may render late.
-async function findWithRetries(selectors, attempts = 12, delayMs = 500) {
+// Find clickable element by visible text (supports EN + TR fallbacks).
+function findButtonByText(textCandidates) {
+  const candidates = Array.from(document.querySelectorAll('button, [role="button"], a'));
+  return (
+    candidates.find((node) => {
+      const text = (node.textContent || '').trim().toLowerCase();
+      return textCandidates.some((t) => text.includes(t));
+    }) || null
+  );
+}
+
+async function findWithRetries(fn, attempts = 12, delayMs = 500) {
   for (let i = 0; i < attempts; i += 1) {
-    const element = findFirst(selectors);
-    if (element) return element;
+    const value = fn();
+    if (value) return value;
     await sleep(delayMs);
   }
   return null;
 }
 
-// Basic page check.
 function isTikTokVideoPage() {
   return location.hostname.includes('tiktok.com') && location.pathname.includes('/video/');
 }
 
 async function runShareAutomation() {
-  console.log('[TikTok Content] Starting share automation...');
+  console.log('[TikTok Content] Share flow started:', location.href);
 
   if (!isTikTokVideoPage()) {
-    console.warn('[TikTok Content] Not on a TikTok video page.');
     return { ok: false, reason: 'not_video_page' };
   }
 
-  // Share button selectors (fallback chain).
-  const shareButtonSelectors = [
-    'button[data-e2e="share-icon"]',
-    'button[aria-label*="Share"]',
-    '[data-e2e="browse-share-icon"]',
-    'button:has(svg[data-e2e="share-icon"])'
-  ];
+  const shareButton = await findWithRetries(() => {
+    const bySelector = findBySelectors([
+      'button[data-e2e="share-icon"]',
+      '[data-e2e="browse-share-icon"]',
+      'button[aria-label*="Share"]',
+      '[role="button"][aria-label*="Share"]'
+    ]);
 
-  const shareButton = await findWithRetries(shareButtonSelectors);
+    if (bySelector) return bySelector;
+
+    return findButtonByText(['share', 'paylaş']);
+  });
+
   if (!shareButton) {
-    console.warn('[TikTok Content] Share button not found.');
     return { ok: false, reason: 'share_button_not_found' };
   }
 
   shareButton.click();
   console.log('[TikTok Content] Share button clicked.');
 
-  // Wait for share panel options to appear.
-  await sleep(700);
+  // Wait for share panel animation/render.
+  await sleep(900);
 
-  // Prefer "Copy link"; fallback to send options.
-  const optionSelectors = [
-    '[data-e2e="share-copy-link"]',
-    'button[aria-label*="Copy link"]',
-    '[role="button"][aria-label*="Copy"]',
-    '[data-e2e="share-send-to-friends"]',
-    'button[aria-label*="Send to friends"]',
-    '[role="button"][aria-label*="Send"]'
-  ];
+  const shareOption = await findWithRetries(() => {
+    const bySelector = findBySelectors([
+      '[data-e2e="share-copy-link"]',
+      '[data-e2e="share-send-to-friends"]',
+      'button[aria-label*="Copy link"]',
+      '[role="button"][aria-label*="Copy link"]'
+    ]);
 
-  const optionButton = await findWithRetries(optionSelectors, 10, 400);
-  if (!optionButton) {
-    console.warn('[TikTok Content] Share option not found.');
+    if (bySelector) return bySelector;
+
+    return findButtonByText(['copy link', 'copy', 'bağlantıyı kopyala', 'kopyala', 'send to friends']);
+  }, 14, 450);
+
+  if (!shareOption) {
     return { ok: false, reason: 'share_option_not_found' };
   }
 
-  optionButton.click();
-  console.log('[TikTok Content] Share option clicked successfully.');
+  shareOption.click();
+  console.log('[TikTok Content] Share option clicked.');
 
-  return { ok: true };
+  return { ok: true, reason: 'share_completed' };
 }
 
-// Listen for background instructions.
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type !== 'RUN_DAILY_SHARE') return;
 
   runShareAutomation()
     .then((result) => sendResponse(result))
     .catch((error) => {
-      console.error('[TikTok Content] Automation failed:', error);
+      console.error('[TikTok Content] Share flow exception:', error);
       sendResponse({ ok: false, reason: 'exception', error: String(error) });
     });
 

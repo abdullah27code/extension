@@ -8,7 +8,7 @@
       body {
         margin: 0;
         padding: 14px;
-        min-width: 320px;
+        min-width: 340px;
         font-family: Arial, sans-serif;
         background: #f8fafc;
       }
@@ -22,6 +22,12 @@
       h1 {
         margin: 0;
         font-size: 17px;
+      }
+
+      .hint {
+        margin: 0;
+        font-size: 12px;
+        color: #475569;
       }
 
       label {
@@ -64,15 +70,23 @@
       }
 
       #status {
+        margin: 0;
         font-size: 12px;
-        color: #475569;
-        min-height: 18px;
+        color: #334155;
+        line-height: 1.5;
+        background: #eef2ff;
+        border: 1px solid #c7d2fe;
+        border-radius: 8px;
+        padding: 8px;
+        white-space: normal;
+        word-break: break-word;
       }
     </style>
   </head>
   <body>
     <main class="card">
       <h1>TikTok Daily Share</h1>
+      <p class="hint">Save one TikTok video URL. The extension will try to share it once every 24 hours.</p>
 
       <label for="videoUrl">TikTok Video URL</label>
       <input id="videoUrl" type="url" placeholder="https://www.tiktok.com/@user/video/123" />
@@ -83,7 +97,7 @@
         <button id="runNowButton" type="button">Run Now</button>
       </div>
 
-      <p id="status">Status: Inactive</p>
+      <p id="status">Mode: Inactive</p>
     </main>
 
     <script src="popup.js"></script>

@@ -8,59 +8,78 @@ function isValidTikTokUrl(url) {
   return /^https:\/\/www\.tiktok\.com\/.+/i.test(url);
 }
 
+function formatTime(isoString) {
+  if (!isoString) return 'never';
+  const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) return 'never';
+  return date.toLocaleString();
+}
+
 async function refreshUI() {
-  const { videoUrl = '', automationEnabled = false } = await chrome.storage.sync.get([
+  const {
+    videoUrl = '',
+    automationEnabled = false,
+    lastRunStatus = 'idle',
+    lastRunDetails = 'Ready.',
+    lastRunAt = ''
+  } = await chrome.storage.sync.get([
     'videoUrl',
-    'automationEnabled'
+    'automationEnabled',
+    'lastRunStatus',
+    'lastRunDetails',
+    'lastRunAt'
   ]);
 
   videoUrlInput.value = videoUrl;
   toggleButton.textContent = automationEnabled ? 'Disable' : 'Enable';
-  statusText.textContent = `Status: ${automationEnabled ? 'Active' : 'Inactive'}${
-    videoUrl ? ' | URL Saved' : ' | No URL'
-  }`;
+
+  statusText.textContent = [
+    `Mode: ${automationEnabled ? 'Active' : 'Inactive'}`,
+    `Last: ${lastRunStatus}`,
+    `Detail: ${lastRunDetails}`,
+    `At: ${formatTime(lastRunAt)}`
+  ].join(' | ');
 }
 
 saveButton.addEventListener('click', async () => {
   const videoUrl = videoUrlInput.value.trim();
 
   if (!isValidTikTokUrl(videoUrl)) {
-    statusText.textContent = 'Status: Please enter a valid TikTok URL.';
+    statusText.textContent = 'Please enter a valid TikTok URL (https://www.tiktok.com/...).';
     return;
   }
 
   await chrome.storage.sync.set({ videoUrl });
-  statusText.textContent = 'Status: URL saved.';
-  console.log('[Popup] URL saved:', videoUrl);
-
+  statusText.textContent = 'URL saved successfully.';
   refreshUI();
 });
 
 toggleButton.addEventListener('click', async () => {
   const { automationEnabled = false } = await chrome.storage.sync.get('automationEnabled');
   await chrome.storage.sync.set({ automationEnabled: !automationEnabled });
-
-  statusText.textContent = `Status: Automation ${!automationEnabled ? 'enabled' : 'disabled'}.`;
-  console.log('[Popup] Automation toggled:', !automationEnabled);
-
+  statusText.textContent = `Automation ${!automationEnabled ? 'enabled' : 'disabled'}.`;
   refreshUI();
 });
 
 runNowButton.addEventListener('click', () => {
+  statusText.textContent = 'Manual run started...';
+
   chrome.runtime.sendMessage({ type: 'RUN_NOW' }, (response) => {
     if (chrome.runtime.lastError) {
-      statusText.textContent = `Status: Error - ${chrome.runtime.lastError.message}`;
+      statusText.textContent = `Error: ${chrome.runtime.lastError.message}`;
       return;
     }
 
     if (!response?.ok) {
-      statusText.textContent = `Status: Run failed - ${response?.error || 'Unknown error'}`;
+      statusText.textContent = `Run failed: ${response?.error || 'Unknown error'}`;
       return;
     }
 
-    statusText.textContent = 'Status: Manual run triggered.';
+    statusText.textContent = 'Manual run sent. Check Last status below.';
+    refreshUI();
   });
 });
 
-// Initial UI state.
+// Auto-refresh status every 2 seconds while popup is open.
+setInterval(refreshUI, 2000);
 refreshUI();
